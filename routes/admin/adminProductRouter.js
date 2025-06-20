@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from './../../middlewares/auth.js';
+import { authenticateWithRefresh } from './../../middlewares/refreshToken.js';
 import { authorizeAdmin } from './../../middlewares/authorizeAdmin.js';
 import { bulkUpdateProductStatus, createProduct, deleteProduct, updateProduct } from './../../controllers/productsController.js';
 import { bulkDeleteVariantsByProductId, bulkUpdateVariantStatus, createProductVariant, deleteProductVariant, updateProductVariant } from './../../controllers/productVariants.js';
@@ -7,7 +7,7 @@ import { bulkDeleteVariantsByProductId, bulkUpdateVariantStatus, createProductVa
 
 const router = express.Router();
 
-router.use(authenticateToken, authorizeAdmin); 
+router.use(authenticateWithRefresh, authorizeAdmin);
 
 // Product routes
 router.post('', createProduct);

@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../../middlewares/auth.js';
+import { authenticateWithRefresh } from '../../middlewares/refreshToken.js';
 import { authorizeAdmin } from '../../middlewares/authorizeAdmin.js';
 import { deleteUser, getUserById, getUsers, updateUser } from './../../controllers/userController.js';
 
@@ -7,7 +7,7 @@ import { deleteUser, getUserById, getUsers, updateUser } from './../../controlle
 const router = express.Router();
 
 // Gắn middleware cho toàn bộ admin router
-router.use(authenticateToken, authorizeAdmin);
+router.use(authenticateWithRefresh, authorizeAdmin);
 
 // Danh sách người dùng
 router.get('/', getUsers);

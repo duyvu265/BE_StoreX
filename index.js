@@ -34,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 // public Routes
-app.use('/api/users', publicUserRouter);
+app.use('/api/auth', publicUserRouter);
 app.use('/api/products', publicProductRouter);
 app.use('/api/categories', publicCategoryRouter);
 app.use('/api/cart', cartRouter);

@@ -183,3 +183,15 @@ CREATE TABLE IF NOT EXISTS carts (
     FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
     UNIQUE KEY unique_user_product (user_id, product_id)
 );
+
+-- Tạo bảng refresh_tokens
+CREATE TABLE IF NOT EXISTS `refresh_tokens` (
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `token` VARCHAR(512) NOT NULL UNIQUE,
+    `user_id` INT NOT NULL,
+    `user_type` ENUM('user', 'employee') NOT NULL,
+    `expires_at` DATETIME NOT NULL,
+    `is_revoked` TINYINT(1) DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

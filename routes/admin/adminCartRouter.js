@@ -7,13 +7,13 @@ import {
   clearCart,
   toggleCartItemSelection
 } from '../../controllers/cartController.js';
-import { authenticateToken } from '../../middlewares/auth.js';
+import { authenticateWithRefresh } from '../../middlewares/refreshToken.js';
 import { authorizeAdmin } from '../../middlewares/authorizeAdmin.js';
 
 const router = express.Router();
 
 // Tất cả routes đều cần xác thực admin
-router.use(authenticateToken, authorizeAdmin);
+router.use(authenticateWithRefresh, authorizeAdmin);
 
 // Lấy giỏ hàng của user bất kỳ
 router.get('/:userId', getCart);

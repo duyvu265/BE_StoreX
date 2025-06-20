@@ -6,8 +6,7 @@ import ProductInventory from '../models/ProductInventory.js';
 // Lấy giỏ hàng của người dùng
 export const getCart = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
-
+    const userId = req.user.id;
     const cartItems = await Cart.findAll({
       where: { user_id: userId },
       include: [{

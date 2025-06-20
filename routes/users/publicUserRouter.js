@@ -1,10 +1,11 @@
 import express from 'express';
-import { changePassword, createUser, deleteUser, getMe, getUserById, googleCallback, login, loginWithGoogle, logout, updateUser, updateProfile } from '../../controllers/userController.js';
+import { changePassword, createUser, deleteUser, getMe, getUserById, googleCallback, login, loginWithGoogle, logout, updateUser, updateProfile, resetPassword, sendResetPasswordEmail } from '../../controllers/userController.js';
 import admin from '../../config/firebaseAdmin.js';
 import User from '../../models/User.js';
 import jwt from 'jsonwebtoken';
 import { validateLogin, validateRegister } from '../../middlewares/validators.js';
-import { authenticateToken } from '../../middlewares/auth.js';
+import { authenticateWithRefresh } from '../../middlewares/refreshToken.js';
+import { refreshTokenEndpoint } from '../../middlewares/refreshToken.js';
 
 const router = express.Router();
 
@@ -13,7 +14,8 @@ router.post('/register', validateRegister, createUser);
 
 // Đăng nhập
 router.post('/login', validateLogin, login);
-
+router.post('/reset-password', resetPassword);
+router.post('/forgot-password', sendResetPasswordEmail);
 // Đăng nhập bằng Google
 router.post('/google-login', async (req, res) => {
   try {
@@ -74,16 +76,21 @@ router.post('/google-login', async (req, res) => {
 // router.get('/auth/google', googleLogin);
 router.get('/auth/google/callback', googleCallback);
 
-// Các API cần đăng nhập
-router.get('/me', authenticateToken, getMe);
-router.post('/logout', authenticateToken, logout);
-router.get('/:id', authenticateToken, getUserById);
-router.put('/:id', authenticateToken, updateUser);
-router.delete('/:id', authenticateToken, deleteUser);
 
-router.post('/change-password', authenticateToken, changePassword);
-router.put('/profile', authenticateToken, updateProfile);
+router.post('/refresh-token', refreshTokenEndpoint);
+
+// Các API cần đăng nhập
+router.get('/me', authenticateWithRefresh, getMe);
+router.post('/logout', authenticateWithRefresh, logout);
+router.get('/:id', authenticateWithRefresh, getUserById);
+router.put('/:id', authenticateWithRefresh, updateUser);
+router.delete('/:id', authenticateWithRefresh, deleteUser);
+
+router.post('/change-password', authenticateWithRefresh, changePassword);
+router.put('/profile', authenticateWithRefresh, updateProfile);
 // router.post('/:id/verify-email', authenticateToken, verifyEmail);
 // router.post('/:id/verify-phone', authenticateToken, verifyPhone);
+
+
 
 export default router;

@@ -7,12 +7,12 @@ import {
   clearCart,
   toggleCartItemSelection
 } from '../../controllers/cartController.js';
-import { authenticateToken } from '../../middlewares/auth.js';
+import { authenticateWithRefresh } from '../../middlewares/refreshToken.js';
 
 const router = express.Router();
 
 // Tất cả routes đều cần đăng nhập
-router.use(authenticateToken);
+router.use(authenticateWithRefresh);
 
 // Lấy giỏ hàng
 router.get('/', getCart);

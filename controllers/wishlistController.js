@@ -1,11 +1,10 @@
 import Wishlist from '../models/Wishlist.js';
 import Product from '../models/Product.js';
-import { sequelize } from '../config/database.js';
 
 // Lấy danh sách wishlist của user
 export const getWishlist = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.user.id;
     const wishlistItems = await Wishlist.findAll({
       where: { user_id: userId },
       include: [{ model: Product }],
@@ -23,7 +22,7 @@ export const getWishlist = async (req, res) => {
 // Thêm sản phẩm vào wishlist
 export const addToWishlist = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId = req.user.id;
     const { product_id } = req.body;
     // Kiểm tra đã tồn tại
     const exists = await Wishlist.findOne({ where: { user_id: userId, product_id } });
@@ -43,7 +42,7 @@ export const addToWishlist = async (req, res) => {
 // Xóa sản phẩm khỏi wishlist
 export const removeFromWishlist = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user.id;
+    const userId =req.user.id;
     const { product_id } = req.body;
     const deleted = await Wishlist.destroy({ where: { user_id: userId, product_id } });
     if (!deleted) {
