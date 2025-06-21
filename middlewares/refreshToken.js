@@ -32,10 +32,11 @@ export const authenticateWithRefresh = async (req, res, next) => {
         const refreshDecoded = jwt.verify(refreshToken, tokenConfig.refreshTokenSecret);
 
         // Kiểm tra refresh token trong database
+        const userId = refreshDecoded.id || refreshDecoded.employee_id;
         const storedRefreshToken = await RefreshToken.findOne({
           where: {
             token: refreshToken,
-            user_id: refreshDecoded.employee_id,
+            user_id: userId,
             is_revoked: false
           }
         });
@@ -180,10 +181,11 @@ export const refreshTokenEndpoint = async (req, res) => {
     const decoded = jwt.verify(refreshToken, config.refreshTokenSecret);
 
     // Kiểm tra trong database
+    const userId = decoded.id || decoded.employee_id;
     const storedToken = await RefreshToken.findOne({
       where: {
         token: refreshToken,
-        user_id: decoded.employee_id,
+        user_id: userId,
         is_revoked: false
       }
     });
