@@ -103,13 +103,76 @@ const generateVariants = (products) => {
 // Hàm tạo ảnh cho sản phẩm và variant
 const generateProductImages = async (createdProducts, createdVariants) => {
   const images = [];
-  // Ảnh mẫu
+  // Ảnh mẫu - Chủ đề thời trang
   const sampleImages = [
-    'https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg',
-    'https://gratisography.com/wp-content/uploads/2024/11/gratisography-robot-800x525.jpg',
-    'https://gratisography.com/wp-content/uploads/2024/11/gratisography-cyberpunk-800x525.jpg',
-    'https://gratisography.com/wp-content/uploads/2024/11/gratisography-astronaut-800x525.jpg',
-    'https://gratisography.com/wp-content/uploads/2024/11/gratisography-vr-800x525.jpg'
+    // Quần áo
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
+    'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9',
+    'https://images.unsplash.com/photo-1469398715555-76331a6c7c9b',
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2',
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
+    // Giày dép
+    'https://images.unsplash.com/photo-1517260911205-8a3b66e07b64',
+    'https://images.unsplash.com/photo-1519864600265-abb23847ef2c',
+    'https://images.unsplash.com/photo-1519741497674-611481863552',
+    // Phụ kiện
+    'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c',
+    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
+    // Người mẫu thời trang
+    'https://images.unsplash.com/photo-1519125323398-675f0ddb6308',
+    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e',
+    // Thời trang đường phố
+    'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99',
+    // Thời trang trẻ em
+    'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91',
+    // Thời trang công sở
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9',
+    // Thời trang dạ hội
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2',
+    // Thời trang thể thao
+    'https://images.unsplash.com/photo-1519864600265-abb23847ef2c',
+    'https://images.unsplash.com/photo-1519741497674-611481863552',
+    // Thời trang mùa hè
+    'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
+    // Thời trang mùa đông
+    'https://images.unsplash.com/photo-1519985176271-adb1088fa94c',
+    'https://images.unsplash.com/photo-1526178613658-3f1622045557',
+    // Phụ kiện thời trang
+    'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c',
+    'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99',
+    // Bổ sung thêm 30 hình ảnh thời trang
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1469398715555-76331a6c7c9b?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1469398715555-76331a6c7c9b?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1469398715555-76331a6c7c9b?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1517260911205-8a3b66e07b64?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1517260911205-8a3b66e07b64?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1517260911205-8a3b66e07b64?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1519864600265-abb23847ef2c?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1519864600265-abb23847ef2c?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1519864600265-abb23847ef2c?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1519741497674-611481863552?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1519741497674-611481863552?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1519741497674-611481863552?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?fit=crop&w=400&q=80',
+    'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?fit=crop&w=400&q=80',
   ];
 
   // Sản phẩm không có variant: tạo 2-3 ảnh cho Product

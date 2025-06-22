@@ -15,7 +15,7 @@ import wishlistRouter from './routes/users/wishlistRouter.js';
 import adminCartRouter from './routes/admin/adminCartRouter.js';
 import adminWishlistRouter from './routes/admin/adminWishlistRouter.js';
 import adminEmployeeRouter from './routes/admin/adminEmployeeRouter.js';
-
+import publicProductReviewRouter from './routes/users/publicProductReviewRouter.js';
 import {
   initAssociations
 } from './models/index.js';
@@ -33,13 +33,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
+
+
+
+
 // public Routes
 app.use('/api/auth', publicUserRouter);
 app.use('/api/products', publicProductRouter);
 app.use('/api/categories', publicCategoryRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/wishlist', wishlistRouter);
-
+app.use('/api/product-reviews', publicProductReviewRouter); 
 
 // admin router
 app.use('/cms/api/users', adminUserRouter);

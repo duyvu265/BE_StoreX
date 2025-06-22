@@ -1,7 +1,15 @@
 import ProductVariant from '../models/ProductVariant.js';
-import  Product from '../models/Product.js';
+import Product from '../models/Product.js';
 import { Op } from 'sequelize';
 import ProductIdentifiers from '../models/ProductIdentifiers.js';
+import {
+  successResponse,
+  errorResponse,
+  notFoundResponse,
+  validationErrorResponse,
+  paginatedResponse,
+  createPagination
+} from '../utils/responseHelper.js';
 
 // PRODUCT VARIANT CRUD OPERATIONS
 
@@ -12,41 +20,28 @@ export const createProductVariant = async (req, res) => {
 
     // Validate required fields
     if (!variantData.product_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'product_id is required'
-      });
+      return res.status(400).json(validationErrorResponse([
+        'product_id is required'
+      ], 'Missing required fields'));
     }
 
     // Check if parent product exists
     const product = await Product.findByPk(variantData.product_id);
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Parent product not found'
-      });
+      return res.status(404).json(notFoundResponse('Parent product'));
     }
 
     const variant = await ProductVariant.create(variantData);
 
-    res.status(201).json({
-      success: true,
-      message: 'Product variant created successfully',
-      data: variant
-    });
+    res.status(201).json(successResponse(variant, 'Product variant created successfully'));
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: 'SKU already exists'
-      });
+      return res.status(400).json(validationErrorResponse([
+        'SKU already exists'
+      ], 'Duplicate entry'));
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Error creating product variant',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error creating product variant', 500, error.message));
   }
 };
 
@@ -95,24 +90,11 @@ export const getAllProductVariants = async (req, res) => {
       }]
     });
 
-    res.json({
-      success: true,
-      data: {
-        variants,
-        pagination: {
-          current_page: parseInt(page),
-          total_pages: Math.ceil(count / limit),
-          total_items: count,
-          items_per_page: parseInt(limit)
-        }
-      }
-    });
+    const pagination = createPagination(count, page, limit);
+
+    res.json(paginatedResponse(variants, pagination, 'Product variants retrieved successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching product variants',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error fetching product variants', 500, error.message));
   }
 };
 
@@ -141,16 +123,9 @@ export const getVariantsByProductId = async (req, res) => {
       }]
     });
 
-    res.json({
-      success: true,
-      data: variants
-    });
+    res.json(successResponse(variants, 'Product variants retrieved successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching product variants',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error fetching product variants', 500, error.message));
   }
 };
 
@@ -172,22 +147,12 @@ export const getProductVariantById = async (req, res) => {
     });
 
     if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product variant not found'
-      });
+      return res.status(404).json(notFoundResponse('Product variant'));
     }
 
-    res.json({
-      success: true,
-      data: variant
-    });
+    res.json(successResponse(variant, 'Product variant retrieved successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching product variant',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error fetching product variant', 500, error.message));
   }
 };
 
@@ -210,22 +175,12 @@ export const getProductVariantBySku = async (req, res) => {
     });
 
     if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product variant not found'
-      });
+      return res.status(404).json(notFoundResponse('Product variant'));
     }
 
-    res.json({
-      success: true,
-      data: variant
-    });
+    res.json(successResponse(variant, 'Product variant retrieved successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching product variant',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error fetching product variant', 500, error.message));
   }
 };
 
@@ -238,20 +193,14 @@ export const updateProductVariant = async (req, res) => {
     const variant = await ProductVariant.findByPk(id);
 
     if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product variant not found'
-      });
+      return res.status(404).json(notFoundResponse('Product variant'));
     }
 
     // If updating product_id, check if new parent product exists
     if (updateData.product_id && updateData.product_id !== variant.product_id) {
       const product = await Product.findByPk(updateData.product_id);
       if (!product) {
-        return res.status(404).json({
-          success: false,
-          message: 'Parent product not found'
-        });
+        return res.status(404).json(notFoundResponse('Parent product'));
       }
     }
 
@@ -270,24 +219,15 @@ export const updateProductVariant = async (req, res) => {
       }]
     });
 
-    res.json({
-      success: true,
-      message: 'Product variant updated successfully',
-      data: updatedVariant
-    });
+    res.json(successResponse(updatedVariant, 'Product variant updated successfully'));
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        message: 'SKU already exists'
-      });
+      return res.status(400).json(validationErrorResponse([
+        'SKU already exists'
+      ], 'Duplicate entry'));
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Error updating product variant',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error updating product variant', 500, error.message));
   }
 };
 
@@ -299,24 +239,14 @@ export const deleteProductVariant = async (req, res) => {
     const variant = await ProductVariant.findByPk(id);
 
     if (!variant) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product variant not found'
-      });
+      return res.status(404).json(notFoundResponse('Product variant'));
     }
 
     await variant.destroy();
 
-    res.json({
-      success: true,
-      message: 'Product variant deleted successfully'
-    });
+    res.json(successResponse(null, 'Product variant deleted successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting product variant',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error deleting product variant', 500, error.message));
   }
 };
 
@@ -326,10 +256,9 @@ export const bulkUpdateVariantStatus = async (req, res) => {
     const { variant_ids, is_active } = req.body;
 
     if (!Array.isArray(variant_ids) || variant_ids.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'variant_ids array is required'
-      });
+      return res.status(400).json(validationErrorResponse([
+        'variant_ids array is required'
+      ], 'Missing required fields'));
     }
 
     await ProductVariant.update(
@@ -339,16 +268,9 @@ export const bulkUpdateVariantStatus = async (req, res) => {
       }
     );
 
-    res.json({
-      success: true,
-      message: 'Product variants status updated successfully'
-    });
+    res.json(successResponse(null, 'Product variants status updated successfully'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error updating product variants status',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error updating product variants status', 500, error.message));
   }
 };
 
@@ -360,25 +282,15 @@ export const bulkDeleteVariantsByProductId = async (req, res) => {
     // Check if product exists
     const product = await Product.findByPk(product_id);
     if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
+      return res.status(404).json(notFoundResponse('Product'));
     }
 
     await ProductVariant.destroy({
       where: { product_id }
     });
 
-    res.json({
-      success: true,
-      message: 'All variants for this product have been deleted'
-    });
+    res.json(successResponse(null, 'All variants for this product have been deleted'));
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting product variants',
-      error: error.message
-    });
+    res.status(500).json(errorResponse('Error deleting product variants', 500, error.message));
   }
 };

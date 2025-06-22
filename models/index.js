@@ -27,6 +27,8 @@ import Department from './Department.js';
 import ShippingMethod from './ShippingMethod.js';
 // import ActivityLog from './ActivityLog.js';
 import Employee from './Employee.js';
+import ProductReviewImage from './ProductReviewImage.js';
+import ProductReviewReply from './ProductReviewReply.js';
 
 // Associations
 const initAssociations = () => {
@@ -129,6 +131,12 @@ const initAssociations = () => {
 
   // ActivityLog.belongsTo(User, { foreignKey: 'user_id' });
   // ActivityLog.belongsTo(Employee, { foreignKey: 'employee_id' });
+
+  ProductReview.hasMany(ProductReviewImage, { foreignKey: 'review_id', as: 'images' });
+  ProductReviewImage.belongsTo(ProductReview, { foreignKey: 'review_id' });
+
+  ProductReview.hasMany(ProductReviewReply, { foreignKey: 'review_id', as: 'replies' });
+  ProductReviewReply.belongsTo(ProductReview, { foreignKey: 'review_id' });
 };
 
 
@@ -158,5 +166,7 @@ export {
   Department,
   ShippingMethod,
   // ActivityLog,
+  ProductReviewImage,
+  ProductReviewReply,
   initAssociations,
 };

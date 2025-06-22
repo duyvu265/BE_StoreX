@@ -54,4 +54,14 @@ const Category = sequelize.define('Category', {
   tableName: 'categories'
 });
 
+// Self-referencing relationship for parent-child categories
+Category.hasMany(Category, {
+  foreignKey: 'parent_id',
+  as: 'children'
+});
+Category.belongsTo(Category, {
+  foreignKey: 'parent_id',
+  as: 'parent'
+});
+
 export default Category;

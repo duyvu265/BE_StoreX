@@ -221,6 +221,7 @@ export const refreshTokenEndpoint = async (req, res) => {
         refreshTokenExpiry: config.refreshTokenExpiry
       }
     });
+    console.log("Refreshing token... ok");
 
   } catch (error) {
     console.error('Refresh token error:', error);

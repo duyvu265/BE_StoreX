@@ -9,6 +9,139 @@ import ProductImage from '../models/ProductImage.js';
 import Category from '../models/Category.js';
 import Brand from '../models/Brand.js';
 import { Op } from 'sequelize';
+import {
+  successResponse,
+  paginatedResponse,
+  errorResponse,
+  notFoundResponse,
+  createPagination
+} from '../utils/responseHelper.js';
+
+// Hàm chuẩn hóa dữ liệu sản phẩm trả về cho FE
+function normalizeProduct(product) {
+  if (!product) return null;
+  const p = product.toJSON ? product.toJSON() : product;
+
+  // Chuẩn hóa thông tin cơ bản
+  const normalizedProduct = {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    description: p.description,
+    image_url: p.image_url,
+    status: p.status,
+    is_featured: p.is_featured,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+
+    // Thông tin brand
+    brand: p.Brand ? {
+      id: p.Brand.id,
+      name: p.Brand.name,
+      slug: p.Brand.slug
+    } : null,
+
+    // Thông tin category
+    category: p.Category ? {
+      id: p.Category.id,
+      name: p.Category.name,
+      slug: p.Category.slug
+    } : null,
+
+    // Thông tin pricing - ưu tiên từ ProductPricing, sau đó từ ProductVariant
+    pricing: {
+      base_price: null,
+      sale_price: null,
+      cost_price: null
+    },
+
+    // Thông tin inventory
+    inventory: {
+      quantity: 0,
+      low_stock_threshold: null
+    },
+
+    // Thông tin identifiers
+    identifiers: {
+      sku: null,
+      barcode: null
+    },
+
+    // Thông tin metadata
+    metadata: p.ProductMetadatum ? {
+      meta_title: p.ProductMetadatum.meta_title,
+      meta_description: p.ProductMetadatum.meta_description,
+      meta_keywords: p.ProductMetadatum.meta_keywords
+    } : null,
+
+    // Hình ảnh sản phẩm chính (không phải variant)
+    images: [],
+
+    // Variants của sản phẩm
+    variants: []
+  };
+
+  // Xử lý pricing từ ProductPricing
+  if (p.ProductPricing) {
+    normalizedProduct.pricing.base_price = p.ProductPricing.base_price;
+    normalizedProduct.pricing.sale_price = p.ProductPricing.sale_price;
+    normalizedProduct.pricing.cost_price = p.ProductPricing.cost_price;
+  }
+
+  // Xử lý inventory từ ProductInventory
+  if (p.ProductInventory) {
+    normalizedProduct.inventory.quantity = p.ProductInventory.quantity;
+    normalizedProduct.inventory.low_stock_threshold = p.ProductInventory.low_stock_threshold;
+  }
+
+  // Xử lý identifiers từ ProductIdentifiers
+  if (p.ProductIdentifiers) {
+    normalizedProduct.identifiers.sku = p.ProductIdentifiers.sku;
+    normalizedProduct.identifiers.barcode = p.ProductIdentifiers.barcode;
+  }
+
+  // Xử lý hình ảnh sản phẩm chính (không phải variant)
+  if (p.images && Array.isArray(p.images)) {
+    normalizedProduct.images = p.images
+      .filter(img => !img.variant_id) // Chỉ lấy ảnh của sản phẩm chính
+      .map(img => ({
+        id: img.id,
+        image_url: img.image_url,
+        is_main: img.is_main
+      }));
+  }
+
+  // Xử lý variants
+  if (p.variants && Array.isArray(p.variants)) {
+    normalizedProduct.variants = p.variants.map(variant => ({
+      id: variant.id,
+      sku: variant.sku,
+      name: variant.name,
+      price: variant.price,
+      sale_price: variant.sale_price,
+      stock: variant.stock,
+      status: variant.status,
+      images: variant.images ? variant.images.map(img => ({
+        id: img.id,
+        image_url: img.image_url,
+        is_main: img.is_main
+      })) : []
+    }));
+
+    // Nếu có variants, tính tổng stock và giá thấp nhất
+    if (normalizedProduct.variants.length > 0) {
+      const totalStock = normalizedProduct.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+      const minPrice = Math.min(...normalizedProduct.variants.map(v => v.price || 0));
+      const minSalePrice = Math.min(...normalizedProduct.variants.map(v => v.sale_price || v.price || 0));
+
+      normalizedProduct.inventory.quantity = totalStock;
+      normalizedProduct.pricing.base_price = minPrice;
+      normalizedProduct.pricing.sale_price = minSalePrice;
+    }
+  }
+
+  return normalizedProduct;
+}
 
 // PRODUCT CRUD OPERATIONS
 
@@ -159,6 +292,14 @@ export const getAllProducts = async (req, res) => {
               required: false
             }
           ]
+        },
+        {
+          model: Brand,
+          attributes: ['id', 'name', 'slug']
+        },
+        {
+          model: Category,
+          attributes: ['id', 'name', 'slug']
         }
       ],
       limit: parseInt(limit),
@@ -166,15 +307,13 @@ export const getAllProducts = async (req, res) => {
       order: [[sort_by, sort_order]]
     });
 
-    res.json({
-      total: count,
-      total_pages: Math.ceil(count / limit),
-      current_page: parseInt(page),
-      products: rows
-    });
+    const pagination = createPagination(count, page, limit);
+    const normalizedProducts = rows.map(normalizeProduct);
+
+    res.json(paginatedResponse(normalizedProducts, pagination, 'Products retrieved successfully'));
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json({ message: 'Lỗi server', error: error.message });
+    res.status(500).json(errorResponse('Lỗi server', 500, error.message));
   }
 };
 
@@ -214,7 +353,7 @@ export const getProductById = async (req, res) => {
     });
 
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res.status(404).json(notFoundResponse('Product'));
     }
 
     // Nếu có variant, không trả về price, stock, sku ở cấp Product
@@ -236,10 +375,10 @@ export const getProductById = async (req, res) => {
       productData.sku = iden ? iden.sku : null;
     }
 
-    res.json({ success: true, data: productData });
+    res.json(successResponse(normalizeProduct(productData), 'Product retrieved successfully'));
   } catch (error) {
     console.error('Error fetching product:', error);
-    res.status(500).json({ success: false, message: 'Error fetching product', error: error.message });
+    res.status(500).json(errorResponse('Error fetching product', 500, error.message));
   }
 };
 
@@ -291,7 +430,7 @@ export const getProductBySlug = async (req, res) => {
 
     res.json({
       success: true,
-      data: product
+      data: normalizeProduct(product)
     });
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -670,7 +809,7 @@ export const getHotProducts = async (req, res) => {
     });
     res.json({
       success: true,
-      data: products
+      data: products.map(normalizeProduct)
     });
   } catch (error) {
     console.error('Error fetching hot products:', error);
@@ -743,7 +882,7 @@ export const getSaleProducts = async (req, res) => {
 
     res.json({
       success: true,
-      data: sorted.slice(0, limit)
+      data: sorted.slice(0, limit).map(normalizeProduct)
     });
   } catch (error) {
     console.error('Error fetching sale products:', error);
@@ -810,7 +949,7 @@ export const getNewProducts = async (req, res) => {
     });
     res.json({
       success: true,
-      data: products
+      data: products.map(normalizeProduct)
     });
   } catch (error) {
     console.error('Error fetching new products:', error);
@@ -891,7 +1030,7 @@ export const getProductsByCategory = async (req, res) => {
         total: count,
         total_pages: Math.ceil(count / limit),
         current_page: parseInt(page),
-        products: rows
+        products: rows.map(normalizeProduct)
       }
     });
   } catch (error) {
