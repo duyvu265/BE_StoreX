@@ -221,12 +221,19 @@ export const getAllProducts = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit = 12, // Tăng default limit cho FE
       search,
+      q,
       category_id,
+      category,
       brand_id,
       min_price,
       max_price,
+      price_gte,
+      price_lte,
+      sale,
+      inStock,
+      new: isNew, // Handle 'new' parameter
       sort_by = 'createdAt',
       sort_order = 'DESC'
     } = req.query;
@@ -234,86 +241,303 @@ export const getAllProducts = async (req, res) => {
     const offset = (page - 1) * limit;
     const where = {};
 
-    if (search) {
+    // Tìm kiếm theo tên hoặc mô tả, hoặc category
+    const keyword = search || q;
+    if (keyword) {
+      // Tìm các category có tên chứa từ khóa
+      const matchedCategories = await Category.findAll({
+        where: { name: { [Op.like]: `%${keyword}%` } },
+        attributes: ['id']
+      });
+      const matchedCategoryIds = matchedCategories.map(c => c.id);
+
       where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { description: { [Op.like]: `%${search}%` } }
+        { name: { [Op.like]: `%${keyword}%` } },
+        { description: { [Op.like]: `%${keyword}%` } },
+        ...(matchedCategoryIds.length > 0 ? [{ category_id: { [Op.in]: matchedCategoryIds } }] : [])
       ];
     }
 
-    if (category_id) {
-      where.category_id = category_id;
+    // Lọc theo danh mục - hỗ trợ cả ID và name
+    if (category_id || category) {
+      const categoryValue = category_id || category;
+      if (isNaN(categoryValue)) {
+        const categoryRecord = await Category.findOne({
+          where: { name: categoryValue }
+        });
+        if (categoryRecord) {
+          where.category_id = categoryRecord.id;
+        }
+      } else {
+        where.category_id = categoryValue;
+      }
     }
 
+    // Lọc theo brand
     if (brand_id) {
       where.brand_id = brand_id;
     }
 
-    if (min_price || max_price) {
-      where.price = {};
-      if (min_price) where.price[Op.gte] = min_price;
-      if (max_price) where.price[Op.lte] = max_price;
+    // Handle new products filter
+    if (isNew === 'true') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      where.createdAt = { [Op.gte]: thirtyDaysAgo };
     }
 
-    const { count, rows } = await Product.findAndCountAll({
-      where,
-      include: [
+    // Price filtering - Improved logic
+    const minPrice = min_price || price_gte;
+    const maxPrice = max_price || price_lte;
+
+    if (minPrice || maxPrice) {
+      const priceWhere = {};
+      if (minPrice) priceWhere[Op.gte] = parseFloat(minPrice);
+      if (maxPrice) priceWhere[Op.lte] = parseFloat(maxPrice);
+
+      // Chỉ lọc theo ProductPricing.base_price
+      where['$ProductPricing.base_price$'] = priceWhere;
+    }
+
+    // Sale filtering - Improved
+    if (sale === 'true') {
+      const saleConditions = [
         {
-          model: ProductInventory,
-          attributes: ['quantity', 'low_stock_threshold']
+          sale_price: {
+            [Op.and]: [
+              { [Op.not]: null },
+              { [Op.gt]: 0 }
+            ]
+          }
         },
         {
-          model: ProductPricing,
-          attributes: ['base_price', 'sale_price', 'cost_price']
-        },
-        {
-          model: ProductIdentifiers,
-          attributes: ['sku', 'barcode']
-        },
-        {
+          '$ProductPricing.sale_price$': {
+            [Op.and]: [
+              { [Op.not]: null },
+              { [Op.gt]: 0 }
+            ]
+          }
+        }
+      ];
+
+      where[Op.or] = [...(where[Op.or] || []), ...saleConditions];
+    }
+
+    // Build include array
+    const includeArray = [
+      {
+        model: ProductInventory,
+        attributes: ['quantity', 'low_stock_threshold'],
+        ...(inStock === 'true' && { where: { quantity: { [Op.gt]: 0 } } })
+      },
+      {
+        model: ProductPricing,
+        attributes: ['base_price', 'sale_price', 'cost_price']
+      },
+      {
+        model: ProductIdentifiers,
+        attributes: ['sku', 'barcode']
+      },
+      {
+        model: ProductImage,
+        as: 'images',
+        attributes: ['id', 'product_id', 'variant_id', 'is_main', 'image_url'],
+        required: false,
+        where: { is_main: true },
+        limit: 1
+      },
+      {
+        model: ProductMetadata,
+        attributes: ['meta_title', 'meta_description', 'meta_keywords']
+      },
+      {
+        model: ProductVariant,
+        as: 'variants',
+        attributes: ['id', 'sku', 'name', 'price', 'sale_price', 'stock', 'status'],
+        required: false,
+        include: [{
           model: ProductImage,
           as: 'images',
-          attributes: ['product_id', 'variant_id', 'is_main', 'image_url'],
+          attributes: ['id', 'image_url'],
           required: false
-        },
-        {
-          model: ProductMetadata,
-          attributes: ['meta_title', 'meta_description', 'meta_keywords']
-        },
-        {
-          model: ProductVariant,
-          as: 'variants',
-          attributes: ['id', 'sku', 'name', 'price', 'sale_price', 'stock', 'status'],
-          required: false,
-          include: [
-            {
-              model: ProductImage,
-              as: 'images',
-              required: false
-            }
-          ]
-        },
-        {
-          model: Brand,
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: Category,
-          attributes: ['id', 'name', 'slug']
-        }
-      ],
+        }]
+      },
+      {
+        model: Brand,
+        as: 'Brand',
+        attributes: ['id', 'name', 'slug', 'logo']
+      },
+      {
+        model: Category,
+        as: 'Category',
+        attributes: ['id', 'name', 'slug', 'description']
+      }
+    ];
+
+    // Query DB
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      include: includeArray,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [[sort_by, sort_order]]
+      order: [[sort_by, sort_order]],
+      distinct: true,
+      subQuery: false // Important for complex joins
     });
 
-    const pagination = createPagination(count, page, limit);
-    const normalizedProducts = rows.map(normalizeProduct);
+    // Enhanced product normalization - Match FE expectations
+    const normalizedProducts = rows.map(product => {
+      const productData = product.toJSON();
 
-    res.json(paginatedResponse(normalizedProducts, pagination, 'Products retrieved successfully'));
+      // Get price from multiple sources
+      const basePrice = productData.price ||
+        productData.pricing?.base_price ||
+        productData.ProductPricing?.base_price || 0;
+
+      const salePrice = productData.sale_price ||
+        productData.pricing?.sale_price ||
+        productData.ProductPricing?.sale_price || null;
+
+      // Get stock info
+      const stockQuantity = productData.inventory?.quantity ||
+        productData.ProductInventory?.quantity || 0;
+
+      // Get main image
+      const mainImage = productData.images?.[0]?.image_url ||
+        productData.variants?.[0]?.images?.[0]?.image_url || null;
+
+      return {
+        id: productData.id,
+        name: productData.name,
+        description: productData.description,
+        slug: productData.slug,
+        status: productData.status,
+
+        // Consistent price structure
+        price: parseFloat(basePrice),
+        sale_price: salePrice ? parseFloat(salePrice) : null,
+        has_sale: !!(salePrice && salePrice > 0),
+
+        // Image handling
+        image_url: mainImage,
+        images: productData.images || [],
+
+        // Stock info
+        stock_quantity: stockQuantity,
+        in_stock: stockQuantity > 0,
+        low_stock: stockQuantity <= (productData.inventory?.low_stock_threshold || 5),
+
+        // Category & Brand - Multiple formats for FE compatibility
+        category_id: productData.category_id,
+        category_name: productData.Category?.name,
+        Category: productData.Category,
+
+        brand_id: productData.brand_id,
+        brand_name: productData.Brand?.name,
+        Brand: productData.Brand,
+
+        // Additional fields FE might need
+        sku: productData.identifiers?.sku || productData.ProductIdentifiers?.sku,
+        variants: productData.variants || [],
+
+        // Metadata
+        meta_title: productData.metadata?.meta_title,
+        meta_description: productData.metadata?.meta_description,
+
+        // Computed fields
+        is_new: productData.createdAt &&
+          new Date(productData.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+
+        // Timestamps
+        createdAt: productData.createdAt,
+        updatedAt: productData.updatedAt
+      };
+    });
+
+    // Enhanced pagination
+    const totalPages = Math.ceil(count / limit);
+    const pagination = {
+      total: count,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+      startIndex: offset + 1,
+      endIndex: Math.min(offset + rows.length, count)
+    };
+
+    // Get price range for filters
+    const priceStats = await ProductPricing.findOne({
+      attributes: [
+        [sequelize.fn('MIN', sequelize.col('base_price')), 'min_price'],
+        [sequelize.fn('MAX', sequelize.col('base_price')), 'max_price']
+      ],
+      raw: true
+    });
+
+    // Response structure optimized for FE
+    const response = {
+      success: true,
+      message: 'Products retrieved successfully',
+      data: normalizedProducts, // Keep 'data' for service compatibility
+      products: normalizedProducts, // Also provide 'products' key
+      pagination,
+      filters: {
+        total_found: count,
+        price_range: {
+          min: Math.floor(priceStats?.min_price || 0),
+          max: Math.ceil(priceStats?.max_price || 1000)
+        },
+        applied_filters: {
+          search: keyword || null,
+          category: category || null,
+          category_id: category_id || null,
+          brand_id: brand_id || null,
+          price_range: minPrice || maxPrice ? {
+            min: minPrice ? parseFloat(minPrice) : null,
+            max: maxPrice ? parseFloat(maxPrice) : null
+          } : null,
+          sale_only: sale === 'true',
+          in_stock_only: inStock === 'true',
+          new_only: isNew === 'true'
+        }
+      },
+      meta: {
+        total_categories: await Category.count(),
+        total_brands: await Brand.count(),
+        request_time: new Date().toISOString()
+      }
+    };
+
+    res.json(response);
+
   } catch (error) {
     console.error('Error fetching products:', error);
-    res.status(500).json(errorResponse('Lỗi server', 500, error.message));
+
+    const errorResponse = {
+      success: false,
+      message: 'Lỗi server khi lấy danh sách sản phẩm',
+      error: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        stack: error.stack
+      } : 'Internal server error',
+      data: [],
+      products: [],
+      pagination: {
+        total: 0,
+        page: Number(req.query.page || 1),
+        limit: Number(req.query.limit || 12),
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      },
+      filters: {
+        total_found: 0,
+        applied_filters: {}
+      }
+    };
+
+    res.status(500).json(errorResponse);
   }
 };
 
