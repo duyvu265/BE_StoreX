@@ -1,5 +1,6 @@
 import { DataTypes } from 'sequelize';
-import {sequelize} from '../config/database.js';
+import { sequelize } from '../config/database.js';
+import User from './User.js';
 
 
 const ProductReview = sequelize.define('ProductReview', {
@@ -50,5 +51,7 @@ const ProductReview = sequelize.define('ProductReview', {
   createdAt: 'created_at',
   updatedAt: 'updated_at'
 });
+
+ProductReview.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 export default ProductReview; 

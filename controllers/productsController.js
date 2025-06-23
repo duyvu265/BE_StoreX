@@ -16,6 +16,7 @@ import {
   notFoundResponse,
   createPagination
 } from '../utils/responseHelper.js';
+import ProductReview from '../models/ProductReview.js';
 
 // Hàm chuẩn hóa dữ liệu sản phẩm trả về cho FE
 function normalizeProduct(product) {
@@ -140,7 +141,12 @@ function normalizeProduct(product) {
     }
   }
 
-  return normalizedProduct;
+  // Thêm vào cuối object trả về:
+  return {
+    ...normalizedProduct,
+    rating_count: p.rating_count || 0,
+    rating_avg: p.rating_avg || null
+  };
 }
 
 // PRODUCT CRUD OPERATIONS
@@ -384,6 +390,28 @@ export const getAllProducts = async (req, res) => {
       subQuery: false // Important for complex joins
     });
 
+    // Lấy danh sách product_id
+    const productIds = rows.map(product => product.id);
+    // Lấy thống kê review cho tất cả sản phẩm trong trang
+    const reviewStatsRaw = await ProductReview.findAll({
+      attributes: [
+        'product_id',
+        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+      ],
+      where: { product_id: { [Op.in]: productIds } },
+      group: ['product_id'],
+      raw: true
+    });
+    // Map product_id => stats
+    const reviewStatsMap = {};
+    reviewStatsRaw.forEach(stat => {
+      reviewStatsMap[stat.product_id] = {
+        rating_count: parseInt(stat.rating_count),
+        rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
+      };
+    });
+
     // Enhanced product normalization - Match FE expectations
     const normalizedProducts = rows.map(product => {
       const productData = product.toJSON();
@@ -449,7 +477,11 @@ export const getAllProducts = async (req, res) => {
 
         // Timestamps
         createdAt: productData.createdAt,
-        updatedAt: productData.updatedAt
+        updatedAt: productData.updatedAt,
+
+        // Thêm thống kê đánh giá
+        rating_count: reviewStatsMap[productData.id]?.rating_count || 0,
+        rating_avg: reviewStatsMap[productData.id]?.rating_avg || null,
       };
     });
 
@@ -577,10 +609,20 @@ export const getProductById = async (req, res) => {
     });
 
     if (!product) {
-      return res.status(404).json(notFoundResponse('Product'));
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
 
-    // Nếu có variant, không trả về price, stock, sku ở cấp Product
+    // Lấy thống kê review
+    const reviewStats = await ProductReview.findOne({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+      ],
+      where: { product_id: product.id },
+      raw: true
+    });
+
+    // Nêu có variant, không trả về price, stock, sku ở cấp Product
     let productData = product.toJSON();
     if (productData.variants && productData.variants.length > 0) {
       productData.price = null;
@@ -598,6 +640,10 @@ export const getProductById = async (req, res) => {
       productData.price = pri ? pri.base_price : null;
       productData.sku = iden ? iden.sku : null;
     }
+
+    // Thêm thống kê đánh giá
+    productData.rating_count = reviewStats ? parseInt(reviewStats.rating_count) : 0;
+    productData.rating_avg = reviewStats && reviewStats.rating_avg ? parseFloat(reviewStats.rating_avg).toFixed(2) : null;
 
     res.json(successResponse(normalizeProduct(productData), 'Product retrieved successfully'));
   } catch (error) {
@@ -652,9 +698,24 @@ export const getProductBySlug = async (req, res) => {
       });
     }
 
+    // Lấy thống kê review
+    const reviewStats = await ProductReview.findOne({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+      ],
+      where: { product_id: product.id },
+      raw: true
+    });
+
+    // Thêm thống kê đánh giá vào product
+    let productData = product.toJSON();
+    productData.rating_count = reviewStats ? parseInt(reviewStats.rating_count) : 0;
+    productData.rating_avg = reviewStats && reviewStats.rating_avg ? parseFloat(reviewStats.rating_avg).toFixed(2) : null;
+
     res.json({
       success: true,
-      data: normalizeProduct(product)
+      data: normalizeProduct(productData)
     });
   } catch (error) {
     console.error('Error fetching product:', error);

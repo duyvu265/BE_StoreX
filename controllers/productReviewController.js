@@ -8,6 +8,7 @@ import {
   notFoundResponse,
   validationErrorResponse
 } from '../utils/responseHelper.js';
+import User from '../models/User.js';
 
 // Thêm review mới (có thể kèm ảnh)
 export const createReview = async (req, res) => {
@@ -64,7 +65,10 @@ export const getReviewsByProduct = async (req, res) => {
 
     const { count, rows } = await ProductReview.findAndCountAll({
       where,
-      include: [{ model: ProductReviewImage, as: 'images' }],
+      include: [
+        { model: ProductReviewImage, as: 'images' },
+        { model: User, as: 'user', attributes: ['id', 'full_name', 'avatar'] }
+      ],
       order: [[sort_by, sort_order]],
       limit: parseInt(limit),
       offset: parseInt(offset)
