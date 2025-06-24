@@ -712,7 +712,6 @@ export const sendResetPasswordEmail = async (req, res) => {
       success: true,
       message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu. Vui lòng kiểm tra hộp thư và làm theo hướng dẫn.'
     });
-    console.log(token);
 
 
   } catch (error) {

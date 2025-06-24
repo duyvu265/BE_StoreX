@@ -163,8 +163,6 @@ export const generateTokenPair = async (user) => {
 
 // API endpoint để refresh token
 export const refreshTokenEndpoint = async (req, res) => {
-  console.log("Refreshing token...");
-
   try {
     const { refreshToken } = req.body;
 
@@ -180,8 +178,14 @@ export const refreshTokenEndpoint = async (req, res) => {
     // Verify refresh token
     const decoded = jwt.verify(refreshToken, config.refreshTokenSecret);
 
-    // Kiểm tra trong database
-    const userId = decoded.id || decoded.employee_id;
+    // Chỉ dùng cho user
+    const userId = decoded.id;
+    if (!userId) {
+      return res.status(401).json({
+        message: 'Refresh token không hợp lệ',
+        code: 'INVALID_REFRESH_TOKEN'
+      });
+    }
     const storedToken = await RefreshToken.findOne({
       where: {
         token: refreshToken,
@@ -199,9 +203,9 @@ export const refreshTokenEndpoint = async (req, res) => {
 
     console.log("Token validation successful");
 
-    // Tạo token pair mới
+    // Tạo token pair mới chỉ cho user
     const newTokens = await generateTokenPair({
-      employee_id: decoded.employee_id,
+      id: decoded.id,
       email: decoded.email,
       role: decoded.role
     });

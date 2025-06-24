@@ -17,60 +17,7 @@ router.post('/login', validateLogin, login);
 router.post('/reset-password', resetPassword);
 router.post('/forgot-password', sendResetPasswordEmail);
 // Đăng nhập bằng Google
-router.post('/google-login', async (req, res) => {
-  try {
-    const { idToken } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({ message: 'Không tìm thấy token' });
-    }
-
-    // Xác thực token với Firebase
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-
-    const { email, name, picture, uid } = decodedToken;
-
-    // Tìm user theo email
-    let user = await User.findOne({ where: { email } });
-
-    if (!user) {
-      // Tạo password ngẫu nhiên
-      const randomPassword = Math.random().toString(36).slice(-8);
-
-      // Tạo user mới
-      user = await User.create({
-        email,
-        password: randomPassword,
-        full_name: name,
-        avatar: picture,
-        status: 'active',
-        is_verified: true,
-        provider: 'google'
-      });
-    }
-
-    // Tạo token
-    const token = jwt.sign(
-      { id: user.id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    res.json({
-      message: 'Đăng nhập Google thành công',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        avatar: user.avatar
-      }
-    });
-  } catch (error) {
-    console.error('Google login error:', error);
-    res.status(500).json({ message: 'Lỗi server', error: error.message });
-  }
-});
+router.post('/google-login', loginWithGoogle);
 
 // Google OAuth routes
 // router.get('/auth/google', googleLogin);
