@@ -7,7 +7,7 @@ import {
   clearCart,
   toggleCartItemSelection
 } from '../../controllers/cartController.js';
-import { authenticateWithRefresh } from '../../middlewares/refreshToken.js';
+import {  authenticateWithRefresh} from '../../middlewares/refreshToken.js';
 import { authorizeAdmin } from '../../middlewares/authorizeAdmin.js';
 
 const router = express.Router();
