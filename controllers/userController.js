@@ -650,7 +650,12 @@ export const sendResetPasswordEmail = async (req, res) => {
 
     // Tạo token reset password (JWT, hết hạn 15 phút)
     const token = jwt.sign(
-      { id: user.id },
+      {
+        id: user.id,
+        type: 'reset_password',
+        email: user.email,
+        iat: Math.floor(Date.now() / 1000)
+      },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -707,6 +712,8 @@ export const sendResetPasswordEmail = async (req, res) => {
       success: true,
       message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu. Vui lòng kiểm tra hộp thư và làm theo hướng dẫn.'
     });
+    console.log(token);
+
 
   } catch (error) {
     console.error('❌ Lỗi khi gửi email reset password:', error);
