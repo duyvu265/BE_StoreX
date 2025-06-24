@@ -16,6 +16,7 @@ import {
   paginatedResponse,
   createPagination
 } from '../utils/responseHelper.js';
+import { getResetPasswordEmailTemplate } from '../utils/resetPasswordTemplate.js';
 
 // Biến memory cache, production nên dùng Redis
 const emailCooldownMap = {}; // { email: timestamp }
@@ -245,9 +246,9 @@ export const updateUser = async (req, res) => {
     await transaction.commit();
 
     res.json(successResponse({
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name
     }, 'User updated successfully'));
   } catch (error) {
     await transaction.rollback();
@@ -460,13 +461,13 @@ export const updateProfile = async (req, res) => {
     await transaction.commit();
 
     res.json(successResponse({
-        address: userProfile.address,
-        bio: userProfile.Bio,
-        first_name: userProfile.first_name,
-        last_name: userProfile.last_name,
-        gender: userProfile.gender,
-        birth_date: userProfile.birth_date,
-        phone: userProfile.phone
+      address: userProfile.address,
+      bio: userProfile.Bio,
+      first_name: userProfile.first_name,
+      last_name: userProfile.last_name,
+      gender: userProfile.gender,
+      birth_date: userProfile.birth_date,
+      phone: userProfile.phone
     }, 'Profile updated successfully'));
   } catch (error) {
     await transaction.rollback();
@@ -626,65 +627,30 @@ export const sendResetPasswordEmail = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json(validationErrorResponse([
-        'email is required'
-      ], 'Missing email'));
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập email' });
     }
 
-    // Rate limiting theo IP
-    const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    // Check cooldown
     const now = Date.now();
-
-    if (!ipRateLimit[clientIP] || now > ipRateLimit[clientIP].resetTime) {
-      ipRateLimit[clientIP] = { count: 0, resetTime: now + RATE_LIMIT_WINDOW };
-    }
-
-    if (ipRateLimit[clientIP].count >= MAX_REQUESTS_PER_HOUR) {
-      const waitTime = Math.ceil((ipRateLimit[clientIP].resetTime - now) / 1000 / 60);
-      return res.status(429).json(validationErrorResponse([
-        `Too many requests. Please try again after ${waitTime} minutes.`
-      ], 'Rate limit exceeded'));
-    }
-    ipRateLimit[clientIP].count++;
-
-    // Check cooldown cho email cụ thể
     if (emailCooldownMap[email] && now - emailCooldownMap[email] < EMAIL_COOLDOWN_MS) {
       const wait = Math.ceil((EMAIL_COOLDOWN_MS - (now - emailCooldownMap[email])) / 1000);
-      return res.status(429).json(validationErrorResponse([
-        `Please check your email or try again after ${wait} seconds.`
-      ], 'Email cooldown'));
+      return res.status(429).json({
+        success: false,
+        message: `Vui lòng kiểm tra email hoặc thử lại sau ${wait} giây.`
+      });
     }
-
-    // Check giới hạn số email mỗi ngày
-    const today = new Date().toDateString();
-    if (!emailDailyCount[email] || emailDailyCount[email].date !== today) {
-      emailDailyCount[email] = { count: 0, date: today };
-    }
-
-    if (emailDailyCount[email].count >= MAX_EMAILS_PER_DAY) {
-      return res.status(429).json(validationErrorResponse([
-        'Daily email limit reached. Please try again tomorrow.'
-      ], 'Daily limit exceeded'));
-    }
-
-    // Cập nhật thời gian gửi gần nhất và số lần gửi
+    // Cập nhật thời gian gửi gần nhất
     emailCooldownMap[email] = now;
-    emailDailyCount[email].count++;
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
       // Không tiết lộ email không tồn tại
-      return res.json(successResponse(null, 'If the email exists, we have sent password reset instructions.'));
+      return res.json({ success: true, message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.' });
     }
 
     // Tạo token reset password (JWT, hết hạn 15 phút)
     const token = jwt.sign(
-      {
-        id: user.id,
-        type: 'reset_password',
-        email: user.email,
-        iat: Math.floor(Date.now() / 1000)
-      },
+      { id: user.id },
       process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
@@ -692,12 +658,62 @@ export const sendResetPasswordEmail = async (req, res) => {
     // Link reset (FE sẽ nhận link này qua email)
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
 
-    // TODO: Gửi email với template đẹp
-    // Có thể sử dụng nodemailer hoặc service khác
+    // Template email đẹp và chuyên nghiệp
+    const emailTemplate = getResetPasswordEmailTemplate({ user, resetLink });
 
-    res.json(successResponse(null, 'If the email exists, we have sent password reset instructions.'));
+    // Gửi email (dùng nodemailer, nếu chưa cấu hình thì chỉ log ra console)
+    let transporter;
+    if (process.env.SMTP_HOST) {
+      transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT || 587,
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || 'StoreX Security <no-reply@storex.com>',
+        to: email,
+        subject: '🔐 Đặt lại mật khẩu StoreX - Yêu cầu bảo mật',
+        html: emailTemplate,
+        // Thêm text version cho các email client không hỗ trợ HTML
+        text: `
+        Xin chào ${user.fullName || user.username || 'bạn'},
+
+      Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản StoreX của bạn.
+
+      Để đặt lại mật khẩu, vui lòng truy cập liên kết sau:
+      ${resetLink}
+
+      Lưu ý: Liên kết này sẽ hết hạn sau 15 phút.
+
+      Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+
+      Trân trọng,
+        Đội ngũ StoreX
+        `
+      });
+
+    } else {
+      // Nếu chưa cấu hình SMTP, chỉ log ra console
+      console.log('🔗 Link reset password:', resetLink);
+      console.log('📧 Email template đã được tạo (chưa gửi do thiếu cấu hình SMTP)');
+    }
+
+    res.json({
+      success: true,
+      message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu. Vui lòng kiểm tra hộp thư và làm theo hướng dẫn.'
+    });
+
   } catch (error) {
     console.error('❌ Lỗi khi gửi email reset password:', error);
-    res.status(500).json(errorResponse('Error sending reset email', 500, error.message));
+    res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
