@@ -345,7 +345,6 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] },
       include: [
         {
           model: UserProfile,
@@ -358,7 +357,7 @@ export const getMe = async (req, res) => {
       return res.status(404).json(notFoundResponse('User'));
     }
 
-    // Format response để bao gồm thông tin từ UserProfile
+    // Chuẩn hóa cấu trúc trả về giống login
     const userData = {
       id: user.id,
       email: user.email,
@@ -367,8 +366,6 @@ export const getMe = async (req, res) => {
       avatar: user.avatar,
       role: user.role,
       status: user.status,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
       // Thông tin từ UserProfile
       address: user.UserProfile?.address || null,
       bio: user.UserProfile?.Bio || null,
@@ -379,7 +376,7 @@ export const getMe = async (req, res) => {
       profile_phone: user.UserProfile?.phone || null,
     };
 
-    res.json(successResponse(userData, 'User profile retrieved successfully'));
+    res.json(successResponse({ user: userData }, 'User profile retrieved successfully'));
   } catch (error) {
     res.status(500).json(errorResponse('Error fetching user profile', 500, error.message));
   }
