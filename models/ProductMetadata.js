@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import Product from './Product.js';
 
 const ProductMetadata = sequelize.define('ProductMetadata', {
   id: {
@@ -32,8 +31,5 @@ const ProductMetadata = sequelize.define('ProductMetadata', {
   timestamps: true,
   tableName: 'product_metadata'
 });
-
-Product.hasOne(ProductMetadata, { foreignKey: 'product_id' });
-ProductMetadata.belongsTo(Product, { foreignKey: 'product_id' });
 
 export default ProductMetadata; 

@@ -1,6 +1,9 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
 import Category from './Category.js';
+import Discount from './Discount.js';
+import ProductDiscount from './ProductDiscount.js';
+import ProductKeyFeature from './ProductKeyFeature.js';
 
 // Định nghĩa model Product
 const Product = sequelize.define('Product', {
@@ -63,8 +66,5 @@ const Product = sequelize.define('Product', {
   tableName: 'products'
 });
 
-// Định nghĩa quan hệ
-Product.belongsTo(Category, { foreignKey: 'category_id' });
-Category.hasMany(Product, { foreignKey: 'category_id' });
 
 export default Product; 

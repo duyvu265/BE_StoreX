@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import Product from './Product.js';
 
 const ProductIdentifiers = sequelize.define('ProductIdentifiers', {
   id: {
@@ -29,8 +28,5 @@ const ProductIdentifiers = sequelize.define('ProductIdentifiers', {
   timestamps: true,
   tableName: 'product_identifiers'
 });
-
-Product.hasOne(ProductIdentifiers, { foreignKey: 'product_id' });
-ProductIdentifiers.belongsTo(Product, { foreignKey: 'product_id' });
 
 export default ProductIdentifiers; 

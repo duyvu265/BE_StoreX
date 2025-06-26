@@ -29,6 +29,10 @@ import ShippingMethod from './ShippingMethod.js';
 import Employee from './Employee.js';
 import ProductReviewImage from './ProductReviewImage.js';
 import ProductReviewReply from './ProductReviewReply.js';
+import Discount from './Discount.js';
+import ProductDiscount from './ProductDiscount.js';
+import ProductImage from './ProductImage.js';
+import ProductKeyFeature from './ProductKeyFeature.js';
 
 // Associations
 const initAssociations = () => {
@@ -65,6 +69,11 @@ const initAssociations = () => {
     onUpdate: 'CASCADE',
   });
 
+  Product.hasMany(ProductImage, { foreignKey: 'product_id', as: 'images' });
+  ProductImage.belongsTo(Product, { foreignKey: 'product_id' });
+
+  ProductVariant.hasMany(ProductImage, { foreignKey: 'variant_id', as: 'images' });
+  ProductImage.belongsTo(ProductVariant, { foreignKey: 'variant_id' });
 
   Order.belongsTo(User, { foreignKey: 'user_id' });
   User.hasMany(Order, { foreignKey: 'user_id' });
@@ -137,6 +146,14 @@ const initAssociations = () => {
 
   ProductReview.hasMany(ProductReviewReply, { foreignKey: 'review_id', as: 'replies' });
   ProductReviewReply.belongsTo(ProductReview, { foreignKey: 'review_id' });
+
+  // Quan hệ Product - Discount qua ProductDiscount (nhiều-nhiều)
+  Product.belongsToMany(Discount, { through: ProductDiscount, foreignKey: 'product_id', otherKey: 'discount_id', as: 'discounts' });
+  Discount.belongsToMany(Product, { through: ProductDiscount, foreignKey: 'discount_id', otherKey: 'product_id', as: 'products' });
+
+  Product.hasMany(ProductKeyFeature, { foreignKey: 'product_id', as: 'key_features' });
+  ProductKeyFeature.belongsTo(Product, { foreignKey: 'product_id' });
+
 };
 
 
@@ -168,5 +185,8 @@ export {
   // ActivityLog,
   ProductReviewImage,
   ProductReviewReply,
+  Discount,
+  ProductDiscount,
+  ProductImage,
   initAssociations,
 };

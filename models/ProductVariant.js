@@ -1,6 +1,5 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
-import Product from './Product.js';
 
 const ProductVariant = sequelize.define('ProductVariant', {
   id: {
@@ -10,11 +9,7 @@ const ProductVariant = sequelize.define('ProductVariant', {
   },
   product_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Product,
-      key: 'id'
-    }
+    allowNull: false
   },
   sku: {
     type: DataTypes.STRING,
@@ -46,9 +41,5 @@ const ProductVariant = sequelize.define('ProductVariant', {
   timestamps: true,
   tableName: 'product_variants'
 });
-
-// Định nghĩa quan hệ
-Product.hasMany(ProductVariant, { foreignKey: 'product_id' });
-ProductVariant.belongsTo(Product, { foreignKey: 'product_id' });
 
 export default ProductVariant; 

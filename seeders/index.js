@@ -7,6 +7,7 @@ import { seedCarts } from './cartSeeder.js';
 import { seedWishlists } from './wishlistSeeder.js';
 import { seedEmployees } from './employeeSeeder.js';
 import { seedReviews } from './reviewSeeder.js';
+import { seedDiscounts } from './discountSeeder.js';
 import { sequelize } from '../config/database.js';
 
 const runSeeders = async () => {
@@ -28,6 +29,7 @@ const runSeeders = async () => {
     await seedBrands();
     await seedSuppliers();
     await seedProducts(totalProducts);
+    await seedDiscounts();
     await seedCarts(totalUsers, totalProducts);
     await seedWishlists(totalUsers, totalProducts);
     await seedReviews(5); // 5 reviews per product

@@ -8,6 +8,7 @@ import ProductMetadata from '../models/ProductMetadata.js';
 import ProductVariant from '../models/ProductVariant.js';
 import ProductImage from '../models/ProductImage.js';
 import Category from '../models/Category.js';
+import ProductKeyFeature from '../models/ProductKeyFeature.js';
 
 // Tạo dữ liệu giả cho sản phẩm
 const generateProducts = (count, categoryIds) => {
@@ -258,6 +259,18 @@ export const seedProducts = async (count = 50) => {
       if (productData.metadata) {
         await ProductMetadata.create({ ...productData.metadata, product_id: product.id });
       }
+
+      // Thêm seed cho ProductKeyFeature
+      const featureCount = faker.number.int({ min: 3, max: 5 });
+      const features = [];
+      for (let i = 0; i < featureCount; i++) {
+        features.push({
+          product_id: product.id,
+          feature_text: faker.commerce.productAdjective() + ' ' + faker.commerce.productMaterial(),
+          order: i + 1
+        });
+      }
+      await ProductKeyFeature.bulkCreate(features);
     }
 
     console.log(`✅ ${products.length} products seeded successfully`);

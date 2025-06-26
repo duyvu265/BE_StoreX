@@ -1,7 +1,8 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
+import Product from './Product.js';
 
-const ProductInventory = sequelize.define('ProductInventory', {
+const ProductKeyFeature = sequelize.define('ProductKeyFeature', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -10,23 +11,21 @@ const ProductInventory = sequelize.define('ProductInventory', {
   product_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    references: {
-      model: 'products',
-      key: 'id'
-    }
+    onDelete: 'CASCADE'
   },
-  quantity: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0
+  feature_text: {
+    type: DataTypes.STRING(255),
+    allowNull: false
   },
-  low_stock_threshold: {
+  order: {
     type: DataTypes.INTEGER,
     allowNull: true
   }
 }, {
   timestamps: true,
-  tableName: 'product_inventory'
+  tableName: 'product_key_features'
 });
 
-export default ProductInventory; 
+
+
+export default ProductKeyFeature;
