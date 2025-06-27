@@ -9,6 +9,7 @@ import {
   validationErrorResponse
 } from '../utils/responseHelper.js';
 import User from '../models/User.js';
+import ReviewLike from '../models/ReviewLike.js';
 
 // Thêm review mới (có thể kèm ảnh)
 export const createReview = async (req, res) => {
@@ -201,5 +202,51 @@ export const getReplies = async (req, res) => {
     }, 'Replies retrieved successfully'));
   } catch (error) {
     res.status(500).json(errorResponse('Error fetching replies', 500, error.message));
+  }
+};
+
+// Like review
+export const likeReview = async (req, res) => {
+  try {
+    const { review_id } = req.params;
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: 'user_id is required' });
+
+    // Kiểm tra đã like chưa
+    const existed = await ReviewLike.findOne({ where: { review_id, user_id } });
+    if (existed) return res.json({ success: true, message: 'Already liked' });
+
+    await ReviewLike.create({ review_id, user_id });
+    res.json({ success: true, message: 'Liked successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error liking review', error: err.message });
+  }
+};
+
+// Unlike review
+export const unlikeReview = async (req, res) => {
+  try {
+    const { review_id } = req.params;
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: 'user_id is required' });
+
+    await ReviewLike.destroy({ where: { review_id, user_id } });
+    res.json({ success: true, message: 'Unliked successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error unliking review', error: err.message });
+  }
+};
+
+// Kiểm tra đã like chưa
+export const checkReviewLiked = async (req, res) => {
+  try {
+    const { review_id } = req.params;
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ success: false, message: 'user_id is required' });
+
+    const existed = await ReviewLike.findOne({ where: { review_id, user_id } });
+    res.json({ liked: !!existed });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error checking like', error: err.message });
   }
 }; 
