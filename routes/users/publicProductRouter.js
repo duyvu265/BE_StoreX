@@ -3,9 +3,9 @@ import {
   getAllProducts,
   getProductById,
   getProductBySlug,
-  getHotProducts,
-  getSaleProducts,
-  getNewProducts,
+  // getHotProducts,
+  // getSaleProducts,
+  // getNewProducts,
   getProductsByCategory
 } from '../../controllers/productsController.js';
 import { getAllProductVariants, getProductVariantById, getProductVariantBySku, getVariantsByProductId } from '../../controllers/productVariants.js';
@@ -17,13 +17,13 @@ const router = express.Router();
 router.get('/', getAllProducts);
 
 // Lấy sản phẩm hot
-router.get('/hot', getHotProducts);
+// router.get('/hot', getHotProducts);
 
 // Lấy sản phẩm đang giảm giá
-router.get('/sale', getSaleProducts);
+// router.get('/sale', getSaleProducts);
 
 // Lấy sản phẩm mới
-router.get('/new', getNewProducts);
+// router.get('/new', getNewProducts);
 
 // Lấy sản phẩm theo danh mục
 router.get('/category/:category_id', getProductsByCategory);

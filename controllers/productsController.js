@@ -37,18 +37,19 @@ function normalizeProduct(product) {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
 
-    // Thông tin brand
+    // Thông tin brand (chỉ object chữ thường)
     brand: p.Brand ? {
       id: p.Brand.id,
       name: p.Brand.name,
       slug: p.Brand.slug
     } : null,
 
-    // Thông tin category
+    // Thông tin category (chỉ object chữ thường)
     category: p.Category ? {
       id: p.Category.id,
       name: p.Category.name,
-      slug: p.Category.slug
+      slug: p.Category.slug,
+      description: p.Category.description
     } : null,
 
     // Thông tin pricing - ưu tiên từ ProductPricing, sau đó từ ProductVariant
@@ -255,7 +256,8 @@ export const getAllProducts = async (req, res) => {
       inStock,
       new: isNew, // Handle 'new' parameter
       sort_by = 'createdAt',
-      sort_order = 'DESC'
+      sort_order = 'DESC',
+      type // Thêm type để lọc hot, sale, new
     } = req.query;
 
     const offset = (page - 1) * limit;
@@ -298,8 +300,23 @@ export const getAllProducts = async (req, res) => {
       where.brand_id = brand_id;
     }
 
-    // Handle new products filter
-    if (isNew === 'true') {
+    // Ưu tiên lọc theo type nếu có
+    if (type === 'hot') {
+      // Sắp xếp theo rating_count (nhiều review nhất) nếu chưa có sold_count
+      // Sau khi lấy danh sách, sẽ sort lại ở dưới
+    } else if (type === 'sale') {
+      // Lọc sản phẩm sale chỉ theo ProductPricing
+      where[Op.or] = [
+        {
+          '$ProductPricing.sale_price$': {
+            [Op.and]: [
+              { [Op.not]: null },
+              { [Op.gt]: 0 }
+            ]
+          }
+        }
+      ];
+    } else if (type === 'new') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       where.createdAt = { [Op.gte]: thirtyDaysAgo };
@@ -316,30 +333,6 @@ export const getAllProducts = async (req, res) => {
 
       // Chỉ lọc theo ProductPricing.base_price
       where['$ProductPricing.base_price$'] = priceWhere;
-    }
-
-    // Sale filtering - Improved
-    if (sale === 'true') {
-      const saleConditions = [
-        {
-          sale_price: {
-            [Op.and]: [
-              { [Op.not]: null },
-              { [Op.gt]: 0 }
-            ]
-          }
-        },
-        {
-          '$ProductPricing.sale_price$': {
-            [Op.and]: [
-              { [Op.not]: null },
-              { [Op.gt]: 0 }
-            ]
-          }
-        }
-      ];
-
-      where[Op.or] = [...(where[Op.or] || []), ...saleConditions];
     }
 
     // Build include array
@@ -427,77 +420,19 @@ export const getAllProducts = async (req, res) => {
     });
 
     // Enhanced product normalization - Match FE expectations
-    const normalizedProducts = rows.map(product => {
-      const productData = product.toJSON();
-
-      // Get price from multiple sources
-      const basePrice = productData.price ||
-        productData.pricing?.base_price ||
-        productData.ProductPricing?.base_price || 0;
-
-      const salePrice = productData.sale_price ||
-        productData.pricing?.sale_price ||
-        productData.ProductPricing?.sale_price || null;
-
-      // Get stock info
-      const stockQuantity = productData.inventory?.quantity ||
-        productData.ProductInventory?.quantity || 0;
-
-      // Get main image
-      const mainImage = productData.images?.[0]?.image_url ||
-        productData.variants?.[0]?.images?.[0]?.image_url || null;
-
-      return {
-        id: productData.id,
-        name: productData.name,
-        description: productData.description,
-        slug: productData.slug,
-        status: productData.status,
-
-        // Consistent price structure
-        price: parseFloat(basePrice),
-        sale_price: salePrice ? parseFloat(salePrice) : null,
-        has_sale: !!(salePrice && salePrice > 0),
-
-        // Image handling
-        image_url: mainImage,
-        images: productData.images || [],
-
-        // Stock info
-        stock_quantity: stockQuantity,
-        in_stock: stockQuantity > 0,
-        low_stock: stockQuantity <= (productData.inventory?.low_stock_threshold || 5),
-
-        // Category & Brand - Multiple formats for FE compatibility
-        category_id: productData.category_id,
-        category_name: productData.Category?.name,
-        Category: productData.Category,
-
-        brand_id: productData.brand_id,
-        brand_name: productData.Brand?.name,
-        Brand: productData.Brand,
-
-        // Additional fields FE might need
-        sku: productData.identifiers?.sku || productData.ProductIdentifiers?.sku,
-        variants: productData.variants || [],
-
-        // Metadata
-        meta_title: productData.metadata?.meta_title,
-        meta_description: productData.metadata?.meta_description,
-
-        // Computed fields
-        is_new: productData.createdAt &&
-          new Date(productData.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-
-        // Timestamps
-        createdAt: productData.createdAt,
-        updatedAt: productData.updatedAt,
-
-        // Thêm thống kê đánh giá
-        rating_count: reviewStatsMap[productData.id]?.rating_count || 0,
-        rating_avg: reviewStatsMap[productData.id]?.rating_avg || null,
-      };
+    let normalizedProducts = rows.map(product => {
+      const p = product.toJSON();
+      p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
+      p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
+      // Nếu có discounts, gán vào p.discounts (nếu cần)
+      // p.discounts = ... (nếu có logic lấy discounts động)
+      return normalizeProduct(p);
     });
+
+    // Nếu type=hot, sort lại theo rating_count (nhiều review nhất)
+    if (type === 'hot') {
+      normalizedProducts = normalizedProducts.sort((a, b) => b.rating_count - a.rating_count);
+    }
 
     // Enhanced pagination
     const totalPages = Math.ceil(count / limit);
@@ -1071,278 +1006,278 @@ export const getProductStats = async (req, res) => {
 };
 
 // Lấy sản phẩm hot (bán chạy nhất trong tháng)
-export const getHotProducts = async (req, res) => {
-  try {
-    const { limit = 10 } = req.query;
-    const products = await Product.findAll({
-      include: [
-        {
-          model: ProductInventory,
-          attributes: ['quantity', 'low_stock_threshold']
-        },
-        {
-          model: ProductPricing,
-          attributes: ['base_price', 'sale_price', 'cost_price']
-        },
-        {
-          model: ProductIdentifiers,
-          attributes: ['sku', 'barcode']
-        },
-        {
-          model: ProductMetadata,
-          attributes: ['meta_title', 'meta_description', 'meta_keywords']
-        },
-        {
-          model: ProductImage,
-          as: 'images',
-          required: false
-        },
-        {
-          model: ProductVariant,
-          as: 'variants',
-          required: false,
-          include: [
-            {
-              model: ProductImage,
-              as: 'images',
-              required: false
-            }
-          ]
-        }
-      ],
-      where: {
-        status: 'active'
-      },
-      order: [
-        ['createdAt', 'DESC']
-      ],
-      limit: parseInt(limit)
-    });
-    // Lấy danh sách product_id
-    const productIds = products.map(product => product.id);
-    // Lấy thống kê review cho tất cả sản phẩm
-    const reviewStatsRaw = await ProductReview.findAll({
-      attributes: [
-        'product_id',
-        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
-        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
-      ],
-      where: { product_id: { [Op.in]: productIds } },
-      group: ['product_id'],
-      raw: true
-    });
-    const reviewStatsMap = {};
-    reviewStatsRaw.forEach(stat => {
-      reviewStatsMap[stat.product_id] = {
-        rating_count: parseInt(stat.rating_count),
-        rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
-      };
-    });
-    res.json({
-      success: true,
-      data: products.map(product => {
-        const p = product.toJSON();
-        p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
-        p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
-        return normalizeProduct(p);
-      })
-    });
-  } catch (error) {
-    console.error('Error fetching hot products:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching hot products',
-      error: error.message
-    });
-  }
-};
+// export const getHotProducts = async (req, res) => {
+//   try {
+//     const { limit = 10 } = req.query;
+//     const products = await Product.findAll({
+//       include: [
+//         {
+//           model: ProductInventory,
+//           attributes: ['quantity', 'low_stock_threshold']
+//         },
+//         {
+//           model: ProductPricing,
+//           attributes: ['base_price', 'sale_price', 'cost_price']
+//         },
+//         {
+//           model: ProductIdentifiers,
+//           attributes: ['sku', 'barcode']
+//         },
+//         {
+//           model: ProductMetadata,
+//           attributes: ['meta_title', 'meta_description', 'meta_keywords']
+//         },
+//         {
+//           model: ProductImage,
+//           as: 'images',
+//           required: false
+//         },
+//         {
+//           model: ProductVariant,
+//           as: 'variants',
+//           required: false,
+//           include: [
+//             {
+//               model: ProductImage,
+//               as: 'images',
+//               required: false
+//             }
+//           ]
+//         }
+//       ],
+//       where: {
+//         status: 'active'
+//       },
+//       order: [
+//         ['createdAt', 'DESC']
+//       ],
+//       limit: parseInt(limit)
+//     });
+//     // Lấy danh sách product_id
+//     const productIds = products.map(product => product.id);
+//     // Lấy thống kê review cho tất cả sản phẩm
+//     const reviewStatsRaw = await ProductReview.findAll({
+//       attributes: [
+//         'product_id',
+//         [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+//         [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+//       ],
+//       where: { product_id: { [Op.in]: productIds } },
+//       group: ['product_id'],
+//       raw: true
+//     });
+//     const reviewStatsMap = {};
+//     reviewStatsRaw.forEach(stat => {
+//       reviewStatsMap[stat.product_id] = {
+//         rating_count: parseInt(stat.rating_count),
+//         rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
+//       };
+//     });
+//     res.json({
+//       success: true,
+//       data: products.map(product => {
+//         const p = product.toJSON();
+//         p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
+//         p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
+//         return normalizeProduct(p);
+//       })
+//     });
+//   } catch (error) {
+//     console.error('Error fetching hot products:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching hot products',
+//       error: error.message
+//     });
+//   }
+// };
 
-// Lấy sản phẩm đang giảm giá
-export const getSaleProducts = async (req, res) => {
-  try {
-    const { limit = 10 } = req.query;
-    const products = await Product.findAll({
-      include: [
-        {
-          model: ProductInventory,
-          attributes: ['quantity', 'low_stock_threshold']
-        },
-        {
-          model: ProductPricing,
-          attributes: ['base_price', 'sale_price', 'cost_price'],
-          where: {
-            sale_price: { [Op.not]: null, [Op.lt]: sequelize.col('ProductPricing.base_price') }
-          },
-          required: true
-        },
-        {
-          model: ProductIdentifiers,
-          attributes: ['sku', 'barcode']
-        },
-        {
-          model: ProductMetadata,
-          attributes: ['meta_title', 'meta_description', 'meta_keywords']
-        },
-        {
-          model: ProductImage,
-          as: 'images',
-          required: false
-        },
-        {
-          model: ProductVariant,
-          as: 'variants',
-          required: false,
-          include: [
-            {
-              model: ProductImage,
-              as: 'images',
-              required: false
-            }
-          ]
-        }
-      ],
-      where: {
-        status: 'active'
-      }
-    });
-    // Sắp xếp lại trên Node.js theo mức giảm giá
-    const sorted = products.sort((a, b) => {
-      const aPricing = a.ProductPricing;
-      const bPricing = b.ProductPricing;
-      const aDiscount = (aPricing.base_price - aPricing.sale_price) / aPricing.base_price;
-      const bDiscount = (bPricing.base_price - bPricing.sale_price) / bPricing.base_price;
-      return bDiscount - aDiscount;
-    });
-    // Lấy danh sách product_id
-    const productIds = sorted.map(product => product.id);
-    // Lấy thống kê review cho tất cả sản phẩm
-    const reviewStatsRaw = await ProductReview.findAll({
-      attributes: [
-        'product_id',
-        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
-        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
-      ],
-      where: { product_id: { [Op.in]: productIds } },
-      group: ['product_id'],
-      raw: true
-    });
-    const reviewStatsMap = {};
-    reviewStatsRaw.forEach(stat => {
-      reviewStatsMap[stat.product_id] = {
-        rating_count: parseInt(stat.rating_count),
-        rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
-      };
-    });
-    res.json({
-      success: true,
-      data: sorted.slice(0, limit).map(product => {
-        const p = product.toJSON();
-        p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
-        p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
-        return normalizeProduct(p);
-      })
-    });
-  } catch (error) {
-    console.error('Error fetching sale products:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching sale products',
-      error: error.message
-    });
-  }
-};
+// // Lấy sản phẩm đang giảm giá
+// export const getSaleProducts = async (req, res) => {
+//   try {
+//     const { limit = 10 } = req.query;
+//     const products = await Product.findAll({
+//       include: [
+//         {
+//           model: ProductInventory,
+//           attributes: ['quantity', 'low_stock_threshold']
+//         },
+//         {
+//           model: ProductPricing,
+//           attributes: ['base_price', 'sale_price', 'cost_price'],
+//           where: {
+//             sale_price: { [Op.not]: null, [Op.lt]: sequelize.col('ProductPricing.base_price') }
+//           },
+//           required: true
+//         },
+//         {
+//           model: ProductIdentifiers,
+//           attributes: ['sku', 'barcode']
+//         },
+//         {
+//           model: ProductMetadata,
+//           attributes: ['meta_title', 'meta_description', 'meta_keywords']
+//         },
+//         {
+//           model: ProductImage,
+//           as: 'images',
+//           required: false
+//         },
+//         {
+//           model: ProductVariant,
+//           as: 'variants',
+//           required: false,
+//           include: [
+//             {
+//               model: ProductImage,
+//               as: 'images',
+//               required: false
+//             }
+//           ]
+//         }
+//       ],
+//       where: {
+//         status: 'active'
+//       }
+//     });
+//     // Sắp xếp lại trên Node.js theo mức giảm giá
+//     const sorted = products.sort((a, b) => {
+//       const aPricing = a.ProductPricing;
+//       const bPricing = b.ProductPricing;
+//       const aDiscount = (aPricing.base_price - aPricing.sale_price) / aPricing.base_price;
+//       const bDiscount = (bPricing.base_price - bPricing.sale_price) / bPricing.base_price;
+//       return bDiscount - aDiscount;
+//     });
+//     // Lấy danh sách product_id
+//     const productIds = sorted.map(product => product.id);
+//     // Lấy thống kê review cho tất cả sản phẩm
+//     const reviewStatsRaw = await ProductReview.findAll({
+//       attributes: [
+//         'product_id',
+//         [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+//         [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+//       ],
+//       where: { product_id: { [Op.in]: productIds } },
+//       group: ['product_id'],
+//       raw: true
+//     });
+//     const reviewStatsMap = {};
+//     reviewStatsRaw.forEach(stat => {
+//       reviewStatsMap[stat.product_id] = {
+//         rating_count: parseInt(stat.rating_count),
+//         rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
+//       };
+//     });
+//     res.json({
+//       success: true,
+//       data: sorted.slice(0, limit).map(product => {
+//         const p = product.toJSON();
+//         p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
+//         p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
+//         return normalizeProduct(p);
+//       })
+//     });
+//   } catch (error) {
+//     console.error('Error fetching sale products:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching sale products',
+//       error: error.message
+//     });
+//   }
+// };
 
-// Lấy sản phẩm mới
-export const getNewProducts = async (req, res) => {
-  try {
-    const { limit = 10 } = req.query;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const products = await Product.findAll({
-      include: [
-        {
-          model: ProductInventory,
-          attributes: ['quantity', 'low_stock_threshold']
-        },
-        {
-          model: ProductPricing,
-          attributes: ['base_price', 'sale_price', 'cost_price']
-        },
-        {
-          model: ProductIdentifiers,
-          attributes: ['sku', 'barcode']
-        },
-        {
-          model: ProductMetadata,
-          attributes: ['meta_title', 'meta_description', 'meta_keywords']
-        },
-        {
-          model: ProductImage,
-          as: 'images',
-          required: false
-        },
-        {
-          model: ProductVariant,
-          as: 'variants',
-          required: false,
-          include: [
-            {
-              model: ProductImage,
-              as: 'images',
-              required: false
-            }
-          ]
-        }
-      ],
-      where: {
-        status: 'active',
-        createdAt: {
-          [Op.gte]: thirtyDaysAgo
-        }
-      },
-      order: [
-        ['createdAt', 'DESC']
-      ],
-      limit: parseInt(limit)
-    });
-    // Lấy danh sách product_id
-    const productIds = products.map(product => product.id);
-    // Lấy thống kê review cho tất cả sản phẩm
-    const reviewStatsRaw = await ProductReview.findAll({
-      attributes: [
-        'product_id',
-        [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
-        [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
-      ],
-      where: { product_id: { [Op.in]: productIds } },
-      group: ['product_id'],
-      raw: true
-    });
-    const reviewStatsMap = {};
-    reviewStatsRaw.forEach(stat => {
-      reviewStatsMap[stat.product_id] = {
-        rating_count: parseInt(stat.rating_count),
-        rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
-      };
-    });
-    res.json({
-      success: true,
-      data: products.map(product => {
-        const p = product.toJSON();
-        p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
-        p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
-        return normalizeProduct(p);
-      })
-    });
-  } catch (error) {
-    console.error('Error fetching new products:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching new products',
-      error: error.message
-    });
-  }
-};
+// // Lấy sản phẩm mới
+// export const getNewProducts = async (req, res) => {
+//   try {
+//     const { limit = 10 } = req.query;
+//     const thirtyDaysAgo = new Date();
+//     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+//     const products = await Product.findAll({
+//       include: [
+//         {
+//           model: ProductInventory,
+//           attributes: ['quantity', 'low_stock_threshold']
+//         },
+//         {
+//           model: ProductPricing,
+//           attributes: ['base_price', 'sale_price', 'cost_price']
+//         },
+//         {
+//           model: ProductIdentifiers,
+//           attributes: ['sku', 'barcode']
+//         },
+//         {
+//           model: ProductMetadata,
+//           attributes: ['meta_title', 'meta_description', 'meta_keywords']
+//         },
+//         {
+//           model: ProductImage,
+//           as: 'images',
+//           required: false
+//         },
+//         {
+//           model: ProductVariant,
+//           as: 'variants',
+//           required: false,
+//           include: [
+//             {
+//               model: ProductImage,
+//               as: 'images',
+//               required: false
+//             }
+//           ]
+//         }
+//       ],
+//       where: {
+//         status: 'active',
+//         createdAt: {
+//           [Op.gte]: thirtyDaysAgo
+//         }
+//       },
+//       order: [
+//         ['createdAt', 'DESC']
+//       ],
+//       limit: parseInt(limit)
+//     });
+//     // Lấy danh sách product_id
+//     const productIds = products.map(product => product.id);
+//     // Lấy thống kê review cho tất cả sản phẩm
+//     const reviewStatsRaw = await ProductReview.findAll({
+//       attributes: [
+//         'product_id',
+//         [sequelize.fn('COUNT', sequelize.col('review_id')), 'rating_count'],
+//         [sequelize.fn('AVG', sequelize.col('rating')), 'rating_avg']
+//       ],
+//       where: { product_id: { [Op.in]: productIds } },
+//       group: ['product_id'],
+//       raw: true
+//     });
+//     const reviewStatsMap = {};
+//     reviewStatsRaw.forEach(stat => {
+//       reviewStatsMap[stat.product_id] = {
+//         rating_count: parseInt(stat.rating_count),
+//         rating_avg: stat.rating_avg ? parseFloat(stat.rating_avg).toFixed(2) : null
+//       };
+//     });
+//     res.json({
+//       success: true,
+//       data: products.map(product => {
+//         const p = product.toJSON();
+//         p.rating_count = reviewStatsMap[p.id]?.rating_count || 0;
+//         p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
+//         return normalizeProduct(p);
+//       })
+//     });
+//   } catch (error) {
+//     console.error('Error fetching new products:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error fetching new products',
+//       error: error.message
+//     });
+//   }
+// };
 
 // Lấy sản phẩm theo danh mục
 export const getProductsByCategory = async (req, res) => {

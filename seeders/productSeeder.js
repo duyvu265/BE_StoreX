@@ -9,9 +9,10 @@ import ProductVariant from '../models/ProductVariant.js';
 import ProductImage from '../models/ProductImage.js';
 import Category from '../models/Category.js';
 import ProductKeyFeature from '../models/ProductKeyFeature.js';
+import Brand from '../models/Brand.js';
 
 // Tạo dữ liệu giả cho sản phẩm
-const generateProducts = (count, categoryIds) => {
+const generateProducts = (count, categoryIds, brandIds) => {
   const products = [];
   const statuses = ['active', 'inactive', 'out_of_stock'];
 
@@ -23,6 +24,7 @@ const generateProducts = (count, categoryIds) => {
     const salePrice = faker.datatype.boolean() ? price * 0.8 : null;
     const stock = faker.number.int({ min: 0, max: 100 });
     const categoryId = faker.helpers.arrayElement(categoryIds);
+    const brandId = brandIds && brandIds.length > 0 ? faker.helpers.arrayElement(brandIds) : null;
 
     products.push({
       product: {
@@ -31,6 +33,7 @@ const generateProducts = (count, categoryIds) => {
         description: faker.commerce.productDescription(),
         image_url: "https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg",
         category_id: categoryId,
+        brand_id: brandId,
         status: faker.helpers.arrayElement(statuses),
         is_featured: faker.datatype.boolean()
       },
@@ -228,7 +231,9 @@ export const seedProducts = async (count = 50) => {
     }
 
     const categoryIds = categories.map(c => c.id);
-    const products = generateProducts(count, categoryIds);
+    const brands = await Brand.findAll();
+    const brandIds = brands.map(b => b.id);
+    const products = generateProducts(count, categoryIds, brandIds);
     const createdProducts = [];
 
     // Tạo sản phẩm và các bảng liên quan
