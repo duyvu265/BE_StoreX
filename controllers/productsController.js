@@ -19,6 +19,7 @@ import {
 import ProductReview from '../models/ProductReview.js';
 import Discount from '../models/Discount.js';
 import ProductKeyFeature from '../models/ProductKeyFeature.js';
+import Wishlist from '../models/Wishlist.js';
 
 // Hàm chuẩn hóa dữ liệu sản phẩm trả về cho FE
 function normalizeProduct(product) {
@@ -419,6 +420,17 @@ export const getAllProducts = async (req, res) => {
       };
     });
 
+    // Lấy danh sách product_id trong wishlist của user hiện tại
+    let wishlistProductIds = [];
+    if (req.user && req.user.id && productIds.length > 0) {
+      const wishlist = await Wishlist.findAll({
+        where: { user_id: req.user.id, product_id: { [Op.in]: productIds } },
+        attributes: ['product_id'],
+        raw: true
+      });
+      wishlistProductIds = wishlist.map(w => w.product_id);
+    }
+
     // Enhanced product normalization - Match FE expectations
     let normalizedProducts = rows.map(product => {
       const p = product.toJSON();
@@ -426,7 +438,9 @@ export const getAllProducts = async (req, res) => {
       p.rating_avg = reviewStatsMap[p.id]?.rating_avg || null;
       // Nếu có discounts, gán vào p.discounts (nếu cần)
       // p.discounts = ... (nếu có logic lấy discounts động)
-      return normalizeProduct(p);
+      const normalized = normalizeProduct(p);
+      normalized.is_in_wishlist = wishlistProductIds.includes(p.id);
+      return normalized;
     });
 
     // Nếu type=hot, sort lại theo rating_count (nhiều review nhất)
@@ -606,7 +620,21 @@ export const getProductById = async (req, res) => {
     productData.rating_count = reviewStats ? parseInt(reviewStats.rating_count) : 0;
     productData.rating_avg = reviewStats && reviewStats.rating_avg ? parseFloat(reviewStats.rating_avg).toFixed(2) : null;
 
-    res.json(successResponse(normalizeProduct(productData), 'Product retrieved successfully'));
+    // Thêm trường is_in_wishlist
+    let isInWishlist = false;
+    if (req.user && req.user.id) {
+      const wishlist = await Wishlist.findOne({
+        where: { user_id: req.user.id, product_id: product.id },
+        attributes: ['id'],
+        raw: true
+      });
+      isInWishlist = !!wishlist;
+    }
+
+    const result = normalizeProduct(productData);
+    result.is_in_wishlist = isInWishlist;
+
+    res.json(successResponse(result, 'Product retrieved successfully'));
   } catch (error) {
     console.error('Error fetching product:', error);
     res.status(500).json(errorResponse('Error fetching product', 500, error.message));

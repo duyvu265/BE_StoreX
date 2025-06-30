@@ -9,12 +9,13 @@ import {
   getProductsByCategory
 } from '../../controllers/productsController.js';
 import { getAllProductVariants, getProductVariantById, getProductVariantBySku, getVariantsByProductId } from '../../controllers/productVariants.js';
+import { authenticateTokenOptional } from '../../middlewares/auth.js';
 
 
 const router = express.Router();
 
 // Lấy danh sách sản phẩm
-router.get('/', getAllProducts);
+router.get('/', authenticateTokenOptional, getAllProducts);
 
 // Lấy sản phẩm hot
 // router.get('/hot', getHotProducts);
@@ -29,7 +30,7 @@ router.get('/', getAllProducts);
 router.get('/category/:category_id', getProductsByCategory);
 
 // Lấy sản phẩm theo ID
-router.get('/:id', getProductById);
+router.get('/:id', authenticateTokenOptional, getProductById);
 
 // Lấy sản phẩm theo slug
 router.get('/slug/:slug', getProductBySlug);
