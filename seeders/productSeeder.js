@@ -248,17 +248,15 @@ export const seedProducts = async (count = 50) => {
         }
       });
 
-      // Nếu không có variant, tạo các bảng phụ
-      if (!productData.hasVariants) {
-        if (productData.inventory) {
-          await ProductInventory.create({ ...productData.inventory, product_id: product.id });
-        }
-        if (productData.pricing) {
-          await ProductPricing.create({ ...productData.pricing, product_id: product.id });
-        }
-        if (productData.identifiers) {
-          await ProductIdentifiers.create({ ...productData.identifiers, product_id: product.id });
-        }
+      // Luôn tạo các bảng phụ cho product cha, bất kể có variant hay không
+      if (productData.inventory) {
+        await ProductInventory.create({ ...productData.inventory, product_id: product.id });
+      }
+      if (productData.pricing) {
+        await ProductPricing.create({ ...productData.pricing, product_id: product.id });
+      }
+      if (productData.identifiers) {
+        await ProductIdentifiers.create({ ...productData.identifiers, product_id: product.id });
       }
       // Metadata luôn tạo
       if (productData.metadata) {

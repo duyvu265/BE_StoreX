@@ -9,6 +9,7 @@ import { seedEmployees } from './employeeSeeder.js';
 import { seedReviews } from './reviewSeeder.js';
 import { seedDiscounts } from './discountSeeder.js';
 import { sequelize } from '../config/database.js';
+import { seedShippingMethods } from './shippingMethodSeeder.js';
 
 const runSeeders = async () => {
   try {
@@ -33,6 +34,7 @@ const runSeeders = async () => {
     await seedCarts(totalUsers, totalProducts);
     await seedWishlists(totalUsers, totalProducts);
     await seedReviews(5); // 5 reviews per product
+    await seedShippingMethods();
 
     console.log('✅ All seeders completed successfully');
     process.exit(0);

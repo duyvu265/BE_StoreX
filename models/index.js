@@ -33,6 +33,7 @@ import Discount from './Discount.js';
 import ProductDiscount from './ProductDiscount.js';
 import ProductImage from './ProductImage.js';
 import ProductKeyFeature from './ProductKeyFeature.js';
+import UserAddress from './UserAddress.js';
 
 // Associations
 const initAssociations = () => {
@@ -154,6 +155,10 @@ const initAssociations = () => {
   Product.hasMany(ProductKeyFeature, { foreignKey: 'product_id', as: 'key_features' });
   ProductKeyFeature.belongsTo(Product, { foreignKey: 'product_id' });
 
+  // User - UserAddress
+  User.hasMany(UserAddress, { foreignKey: 'user_id', as: 'addresses' });
+  UserAddress.belongsTo(User, { foreignKey: 'user_id' });
+
 };
 
 
@@ -188,5 +193,7 @@ export {
   Discount,
   ProductDiscount,
   ProductImage,
+  ProductKeyFeature,
+  UserAddress,
   initAssociations,
 };

@@ -15,7 +15,13 @@ import wishlistRouter from './routes/users/wishlistRouter.js';
 import adminCartRouter from './routes/admin/adminCartRouter.js';
 import adminWishlistRouter from './routes/admin/adminWishlistRouter.js';
 import adminEmployeeRouter from './routes/admin/adminEmployeeRouter.js';
+import adminOrderRouter from './routes/admin/adminOrderRouter.js';
 import publicProductReviewRouter from './routes/users/publicProductReviewRouter.js';
+import publicOrderRouter from './routes/users/publicOrderRouter.js';
+import userAddressRouter from './routes/users/userAddressRouter.js';
+import adminAddressRouter from './routes/admin/adminUserAddressRouter.js';
+import shippingMethodRouter from './routes/users/shippingMethodRouter.js';
+import adminShippingMethodRouter from './routes/admin/adminShippingMethodRouter.js';
 import {
   initAssociations
 } from './models/index.js';
@@ -44,6 +50,9 @@ app.use('/api/categories', publicCategoryRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/product-reviews', publicProductReviewRouter); 
+app.use('/api/orders', publicOrderRouter); 
+app.use('/api/user-addresses', userAddressRouter); 
+app.use('/api/shipping-methods', shippingMethodRouter);
 
 // admin router
 app.use('/cms/api/users', adminUserRouter);
@@ -52,6 +61,9 @@ app.use('/cms/api/categories', adminCategoryRouter);
 app.use('/cms/api/cart', adminCartRouter);
 app.use('/cms/api/wishlist', adminWishlistRouter);
 app.use('/cms/api/employees', adminEmployeeRouter);
+app.use('/cms/api/orders', adminOrderRouter);
+app.use('/cms/api/user-addresses', adminAddressRouter);
+app.use('/cms/api/shipping-methods', adminShippingMethodRouter);
 
 // Sync database
 const startServer = async () => {

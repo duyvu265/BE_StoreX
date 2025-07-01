@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import UserProfile from '../models/UserProfile.js';
 import UserSettings from '../models/UserSettings.js';
 import UserStats from '../models/UserStats.js';
+import UserAddress from '../models/UserAddress.js';
 
 // Tạo dữ liệu giả cho người dùng
 const generateUsers = (count) => {
@@ -64,7 +65,7 @@ const generateUsers = (count) => {
         email,
         password: 'Password@123',
         full_name: `${firstName} ${lastName}`,
-        avatar:"https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg",
+        avatar: "https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg",
         phone,
         role,
         status
@@ -143,6 +144,24 @@ export const seedUsers = async (count = 100) => {
         ...userData.stats,
         user_id: user.id
       });
+
+      // Thêm seed cho UserAddress (2-4 địa chỉ)
+      const addressCount = faker.number.int({ min: 2, max: 4 });
+      const addressTypes = ['home', 'office', 'other'];
+      for (let i = 0; i < addressCount; i++) {
+        await UserAddress.create({
+          user_id: user.id,
+          name: i === 0 ? userData.user.full_name : faker.person.fullName(),
+          street: faker.location.streetAddress(),
+          district: faker.location.state(),
+          city: faker.location.city(),
+          country: 'Việt Nam',
+          postalCode: faker.location.zipCode(),
+          phone: userData.user.phone || faker.phone.number('09########'),
+          type: addressTypes[i % addressTypes.length],
+          is_default: i === 0 // Địa chỉ đầu tiên là mặc định
+        });
+      }
     }
 
     console.log(`✅ ${users.length} users seeded successfully`);
