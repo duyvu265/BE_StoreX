@@ -1,5 +1,5 @@
 import { DataTypes } from 'sequelize';
-import {sequelize} from '../config/database.js';
+import { sequelize } from '../config/database.js';
 
 
 const Order = sequelize.define('Order', {
@@ -91,6 +91,26 @@ const Order = sequelize.define('Order', {
   shipping_country: {
     type: DataTypes.STRING(100)
   },
+  shipping_method_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  payment_method: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  payment_reference: {
+    type: DataTypes.STRING(100),
+    allowNull: true
+  },
+  payment_time: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  payment_note: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   subtotal: {
     type: DataTypes.DECIMAL(15, 2),
     allowNull: false,
@@ -125,7 +145,7 @@ const Order = sequelize.define('Order', {
   },
   processed_by: {
     type: DataTypes.INTEGER
-  }
+  },
 }, {
   timestamps: true,
   createdAt: 'created_at',

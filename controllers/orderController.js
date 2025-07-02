@@ -7,6 +7,7 @@ import Product from '../models/Product.js';
 import ProductPricing from '../models/ProductPricing.js';
 import Discount from '../models/Discount.js';
 import ProductDiscount from '../models/ProductDiscount.js';
+import ShippingMethod from '../models/ShippingMethod.js';
 
 // Tạo đơn hàng mới
 export const createOrder = async (req, res) => {
@@ -21,7 +22,12 @@ export const createOrder = async (req, res) => {
       shipping_amount = 0,
       currency = 'VND',
       notes,
-      coupon_id
+      coupon_id,
+      shipping_method_id,
+      payment_method,
+      payment_reference,
+      payment_time,
+      payment_note
     } = req.body;
 
     if (!userId || !orderItems || !Array.isArray(orderItems) || orderItems.length === 0) {
@@ -130,7 +136,12 @@ export const createOrder = async (req, res) => {
       total_amount,
       currency,
       notes,
-      coupon_id
+      coupon_id,
+      shipping_method_id,
+      payment_method,
+      payment_reference,
+      payment_time,
+      payment_note
     }, { transaction });
 
     // 6. Tạo order items
@@ -210,7 +221,10 @@ export const getOrderDetail = async (req, res) => {
     const userId = req.user?.id;
     const { order_id } = req.params;
     if (!userId) return res.status(401).json({ message: 'Chưa đăng nhập!' });
-    const order = await Order.findOne({ where: { order_id, user_id: userId } });
+    const order = await Order.findOne({
+      where: { order_id: order_id, user_id: userId },
+      include: [{ model: ShippingMethod, as: 'shipping_method' }]
+    });
     if (!order) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
     const items = await OrderItem.findAll({ where: { order_id } });
     res.json({ success: true, order, items });

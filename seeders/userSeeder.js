@@ -18,6 +18,7 @@ const generateUsers = (count) => {
     user: {
       username: 'admin',
       email: 'admin@example.com',
+      avatar: "https://gratisography.com/wp-content/uploads/2024/11/gratisography-augmented-reality-800x525.jpg",
       password: 'Password@123',
       full_name: 'Admin User',
       phone: '0987654321',

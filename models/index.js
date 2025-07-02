@@ -159,6 +159,7 @@ const initAssociations = () => {
   User.hasMany(UserAddress, { foreignKey: 'user_id', as: 'addresses' });
   UserAddress.belongsTo(User, { foreignKey: 'user_id' });
 
+  Order.belongsTo(ShippingMethod, { foreignKey: 'shipping_method_id', as: 'shipping_method' });
 };
 
 

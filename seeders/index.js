@@ -10,6 +10,7 @@ import { seedReviews } from './reviewSeeder.js';
 import { seedDiscounts } from './discountSeeder.js';
 import { sequelize } from '../config/database.js';
 import { seedShippingMethods } from './shippingMethodSeeder.js';
+import { seedOrders } from './orderSeeder.js';
 
 const runSeeders = async () => {
   try {
@@ -35,6 +36,7 @@ const runSeeders = async () => {
     await seedWishlists(totalUsers, totalProducts);
     await seedReviews(5); // 5 reviews per product
     await seedShippingMethods();
+    await seedOrders(15); // 15 đơn hàng mẫu
 
     console.log('✅ All seeders completed successfully');
     process.exit(0);
